@@ -28,7 +28,7 @@ Pasted text is processed only in browser memory. This repository has no backend,
 | --- | --- |
 | Document cleanup / 문서 정리 | Joins likely wrapped lines while keeping paragraphs and list items. |
 | Keep lines / 라인 유지 | Cleans characters and whitespace without joining non-empty lines. |
-| Aggressive / 강하게 정리 | Applies document cleanup, then collapses extra spacing and paragraph breaks. |
+| Aggressive / 강하게 정리 | Joins every non-structural single-line wrap, compresses extra spaces, and keeps intentional paragraph breaks. |
 
 The toggles let you control ANSI removal, space compression, list preservation, Markdown removal, messenger-friendly punctuation, and Unicode normalization independently.
 
@@ -54,6 +54,7 @@ Other useful commands are `npm test`, `npm run lint`, and `npm run preview`.
 
 - Cleanup is heuristic. Review the result when exact whitespace or formatting is important.
 - Markdown cleanup produces readable plain text; it is not a reversible Markdown parser.
+- Removing code-fence markers also removes their block metadata. The first cleanup preserves fenced content exactly, but cleaning that marker-free result again may treat uncommon code or plain-text fence contents as wrapped prose. Keep Markdown removal off when repeated cleanup or exact code formatting matters.
 - NFKC normalization can change compatibility or presentation characters. Disable it when exact code points matter.
 - Messenger punctuation normalization changes typographic characters by design. Disable it when middle dots, long dashes, or exact list markers matter.
 - Clipboard buttons depend on browser permission and a secure context. Manual paste and copy still work when permission is unavailable.

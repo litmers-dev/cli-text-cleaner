@@ -162,13 +162,13 @@ export function cleanText(raw, options = DEFAULT_OPTIONS) {
     .replace(/[ \t]+([)\]}])/g, "$1");
 
   if (settings.mode !== "lines") {
-    result = result.replace(/\n{3,}/g, "\n\n").trim();
+    result = result.trim();
   }
 
   if (settings.mode === "aggressive") {
-    result = normalizeAggressiveSlashes(
-      result.replace(/[ \t]{2,}/g, " ").replace(/\n{2,}/g, "\n"),
-    );
+    if (settings.collapseSpaces) {
+      result = result.replace(/[ \t]{2,}/g, " ");
+    }
   }
 
   return restoreProtectedFenceLines(result, settings.protectedFenceLinePrefix);
@@ -199,8 +199,19 @@ const MESSENGER_PUNCTUATION = new RegExp(
   `([${UNICODE_BULLETS}—–―‑…])`,
   "g",
 );
-const PROTECTED_CONTACT_SPAN =
-  /(https?:\/\/[^\s<>"']+|[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+)/gi;
+const EMAIL_LOCAL_ATOM_CHARS = "\\p{L}\\p{N}\\p{M}.!#$%&'*+/=?^_`{|}~·∙⋅—–―‑…-";
+const EMAIL_LOCAL_ATOM_SOURCE = `[${EMAIL_LOCAL_ATOM_CHARS}]+`;
+const EMAIL_DOMAIN_LABEL_SOURCE = "[\\p{L}\\p{N}\\p{M}-]+";
+const EMAIL_SPAN_SOURCE = `${EMAIL_LOCAL_ATOM_SOURCE}[ \\t]*@[ \\t]*${EMAIL_DOMAIN_LABEL_SOURCE}(?:[ \\t]*\\.[ \\t]*${EMAIL_DOMAIN_LABEL_SOURCE})+`;
+const PROTECTED_CONTACT_SPAN = new RegExp(
+  `(https?:\\/\\/[^\\s<>"']+)|(^|[^${EMAIL_LOCAL_ATOM_CHARS}])(${EMAIL_SPAN_SOURCE})`,
+  "giu",
+);
+const REPAIRABLE_EMAIL = new RegExp(
+  `(^|[^${EMAIL_LOCAL_ATOM_CHARS}])(${EMAIL_LOCAL_ATOM_SOURCE})[ \\t]*@[ \\t]*(${EMAIL_DOMAIN_LABEL_SOURCE}(?:[ \\t]*\\.[ \\t]*${EMAIL_DOMAIN_LABEL_SOURCE})+)`,
+  "giu",
+);
+const WRAPPED_URL_CONTINUATION = /^[/?#&]\S/i;
 
 function normalizeUnicodeText(value, preserveMessengerPunctuation) {
   return replaceOutsideContactSpans(value, (segment) => {
@@ -219,19 +230,20 @@ function normalizeUnicodeText(value, preserveMessengerPunctuation) {
  */
 export function normalizeMessengerPunctuation(value) {
   const text = String(value ?? "").replace(
-    new RegExp(`^(?:[*]|[${UNICODE_BULLETS}])(?:[ \\t]+|$)`),
+    new RegExp(`^(?:[*—–―]|[${UNICODE_BULLETS}])(?:[ \\t]+|$)`),
     "- ",
   );
 
   return replaceOutsideContactSpans(text, (segment) =>
     segment
-      .replace(/[•●◦○▪▫■□‣⁃]+/g, " - ")
-      .replace(/[·∙⋅]+/g, " / ")
-      .replace(/[—–―]+/g, " - ")
+      .replace(/[ \t]*[•●◦○▪▫■□‣⁃]+[ \t]*/g, " - ")
+      .replace(/[ \t]*[·∙⋅]+[ \t]*/g, " / ")
+      .replace(/[ \t]*[—–―]+[ \t]*/g, " - ")
       .replace(/‑/g, "-")
-      .replace(/…/g, "...")
-      .replace(/[ \t]{2,}/g, " "),
-  ).trimEnd();
+      .replace(/…/g, "..."),
+  )
+    .replace(/^[ \t]+(?=[/-])/, "")
+    .trimEnd();
 }
 
 function replaceOutsideContactSpans(value, transform) {
@@ -240,8 +252,9 @@ function replaceOutsideContactSpans(value, transform) {
   let lastIndex = 0;
 
   for (const match of text.matchAll(PROTECTED_CONTACT_SPAN)) {
-    const [span] = match;
-    const start = match.index ?? 0;
+    const span = match[1] ?? match[3];
+    const prefixLength = match[1] ? 0 : (match[2]?.length ?? 0);
+    const start = (match.index ?? 0) + prefixLength;
     output += transform(text.slice(lastIndex, start));
     output += span;
     lastIndex = start + span.length;
@@ -260,8 +273,9 @@ function repairUrls(line) {
 
 function repairEmails(line) {
   return line.replace(
-    /\b([a-z0-9.!#$%&'*+/=?^_`{|}~-]+)[ \t]*@[ \t]*([a-z0-9-]+(?:[ \t]*\.[ \t]*[a-z0-9-]+)+)\b/gi,
-    (_match, local, domain) => `${local}@${domain.replace(/[ \t]+/g, "")}`,
+    REPAIRABLE_EMAIL,
+    (_match, prefix, local, domain) =>
+      `${prefix}${local}@${domain.replace(/[ \t]+/g, "")}`,
   );
 }
 
@@ -270,9 +284,23 @@ function buildParagraphs(lines, options) {
 
   const output = [];
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+
     if (!line) {
-      pushBlank(output);
+      let blankEnd = index;
+      while (blankEnd + 1 < lines.length && lines[blankEnd + 1] === "") blankEnd += 1;
+
+      const previous = output[output.length - 1];
+      const next = lines[blankEnd + 1];
+
+      if (shouldPreserveCodeBlankRun(previous, next)) {
+        pushBlankRun(output, blankEnd - index + 1);
+      } else {
+        pushBlank(output);
+      }
+
+      index = blankEnd;
       continue;
     }
 
@@ -293,17 +321,24 @@ function buildParagraphs(lines, options) {
     }
 
     if (shouldAppendToPrevious(previous, line, options)) {
-      output[output.length - 1] = joinLines(previous, line);
+      output[output.length - 1] = joinLines(previous, line, options);
     } else {
       output.push(line);
     }
   }
 
-  return output.filter((line, index, list) => !(line === "" && list[index - 1] === ""));
+  return output;
 }
 
 function pushBlank(output) {
   if (output.length && output[output.length - 1] !== "") output.push("");
+}
+
+function pushBlankRun(output, count) {
+  if (!output.length || count < 1) return;
+  for (let index = 0; index < count; index += 1) {
+    output.push("");
+  }
 }
 
 function isStandalone(line, options) {
@@ -318,11 +353,18 @@ function shouldAppendToPrevious(previous, line, options) {
   ) {
     return false;
   }
+  if (/https?:\/\/\S*$/i.test(previous) && WRAPPED_URL_CONTINUATION.test(line)) return true;
+  if (/https?:\/\/\S*$/i.test(previous) && /^[/-]\s/.test(line)) return false;
+  if (/^https?:\/\//i.test(line) && /:$/.test(previous)) return true;
+  if (/@$/.test(previous) && /^[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i.test(line)) return true;
+  if (isLikelyCodeOrCommandLine(previous) || isLikelyCodeOrCommandLine(line)) {
+    return false;
+  }
   if (options.preserveBullets && isListItem(line)) return false;
   if (options.preserveBullets && isListItem(previous)) {
     return isLikelyListContinuation(previous, line);
   }
-  if (/^https?:\/\//i.test(line) && /:$/.test(previous)) return true;
+  if (options.mode === "aggressive") return true;
   if (/^[A-Za-z0-9._%+-]+@/.test(line) && /\/$/.test(previous)) return true;
   if (/^[가-힣A-Za-z0-9([{]/.test(line) && endsAsContinuation(previous)) return true;
   return !/[.!?。)]$/.test(previous) && !/:$/.test(previous);
@@ -344,24 +386,54 @@ function endsAsContinuation(line) {
   return /[,/→:·-]$/.test(line) || /[가-힣A-Za-z0-9)]$/.test(line) || /\[$/.test(line);
 }
 
-function joinLines(previous, line) {
-  if (/https?:\/\/\S*$/i.test(previous) && /^[/?#&]/.test(line)) return `${previous}${line}`;
+function shouldPreserveCodeBlankRun(previous, next) {
+  return Boolean(
+    previous &&
+      next &&
+      isLikelyCodeOrCommandLine(previous) &&
+      isLikelyCodeOrCommandLine(next),
+  );
+}
+
+function isLikelyCodeOrCommandLine(line) {
+  return (
+    /^(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=/.test(line) ||
+    /^(?:async\s+)?function(?:\s*\*)?\s+[A-Za-z_$][\w$]*\s*\(/.test(line) ||
+    /^(?:def|class)\s+[A-Za-z_$][\w$]*(?:\([^)]*\))?\s*:/.test(line) ||
+    /^class\s+[A-Za-z_$][\w$]*(?:\s+extends\s+[A-Za-z_$][\w$.]*)?\s*\{/.test(line) ||
+    /^import\s+(?:["'][^"']+["']|.+\s+from\s+["'][^"']+["'])\s*;?$/.test(line) ||
+    /^export\s+(?:default\s+)?(?:class\s+[A-Za-z_$][\w$]*(?:\s+extends\s+[A-Za-z_$][\w$.]*)?\s*\{|function\s+[A-Za-z_$][\w$]*\s*\(|(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=|\{[^}]+\})/.test(
+      line,
+    ) ||
+    /^(?:await\s+)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\([^)]*\);?$/.test(line) ||
+    /^(?:return|throw|yield|break|continue)(?:\s+.+)?;\s*$/.test(line) ||
+    /^(?:if|for|while|switch|catch)\s*\([^)]*\)\s*\{?/.test(line) ||
+    /^(?:else|try|finally|do)\b.*(?:\{|:)\s*$/.test(line) ||
+    /^(?:\/\/|\/\*|\*\/|#\s)|^[}\])]+[;,]?$/.test(line) ||
+    /^(?:npm|pnpm|yarn|bun)\s+(?:run|exec|dlx|install|add|remove|test|build|lint|dev|start|create|publish|pack|cache|config|why|workspace|workspaces)\b/.test(
+      line,
+    ) ||
+    /^curl\b(?=.*(?:\s-\S|\shttps?:\/\/)).+/.test(line) ||
+    /^node\s+(?:-\S+|\S+\.(?:[cm]?js|mjs|cjs))(?:\s|$)/.test(line)
+  );
+}
+
+function joinLines(previous, line, options) {
+  if (/https?:\/\/\S*$/i.test(previous) && WRAPPED_URL_CONTINUATION.test(line)) {
+    return `${previous}${line}`;
+  }
   if (/@$/.test(previous) && /^[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i.test(line)) {
     return `${previous}${line}`;
   }
-  if (/\/$/.test(previous)) return `${previous} ${line}`.replace(/ {2,}/g, " ");
+  if (/\/$/.test(previous)) return joinWithSpace(previous, line, options);
   if (/[:(]$/.test(previous)) return `${previous} ${line}`;
   if (/^https?:\/\//i.test(line)) return `${previous} ${line}`;
-  return `${previous} ${line}`.replace(/ {2,}/g, " ");
+  return joinWithSpace(previous, line, options);
 }
 
-function normalizeAggressiveSlashes(text) {
-  return text
-    .split(/(\bhttps?:\/\/[^\s<>"']+)/gi)
-    .map((segment, index) =>
-      index % 2 === 1 ? segment : segment.replace(/[ \t]*\/[ \t]*/g, " / "),
-    )
-    .join("");
+function joinWithSpace(previous, line, options) {
+  const joined = `${previous} ${line}`;
+  return options.collapseSpaces ? joined.replace(/ {2,}/g, " ") : joined;
 }
 
 function protectFencedBlockLines(text, stripMarkers) {
