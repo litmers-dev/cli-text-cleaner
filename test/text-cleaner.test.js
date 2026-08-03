@@ -100,6 +100,29 @@ test("normalizes standalone punctuation without touching URLs", () => {
   );
 });
 
+test("preserves a valid URL byte-for-byte while normalizing surrounding text", () => {
+  assert.equal(
+    cleanText("문서·안내 — https://example.com/a…b‑c·d—e", { stripMarkdown: false }),
+    "문서 / 안내 - https://example.com/a…b‑c·d—e",
+  );
+});
+
+test("repairs wrapped URL continuations without inserting spaces", () => {
+  const source = "주소: https://docs.example.com/path\n/next?x=1";
+
+  assert.equal(
+    cleanText(source, { stripMarkdown: false }),
+    "주소: https://docs.example.com/path/next?x=1",
+  );
+});
+
+test("repairs wrapped email domains without inserting spaces after @", () => {
+  assert.equal(
+    cleanText("문의: hello@\nexample.com", { stripMarkdown: false }),
+    "문의: hello@example.com",
+  );
+});
+
 test("strips CSI, OSC, DCS, APC, PM, and SOS terminal sequences", () => {
   const esc = "\u001b";
   const source = [

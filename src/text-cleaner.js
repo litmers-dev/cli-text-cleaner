@@ -191,14 +191,18 @@ const MESSENGER_PUNCTUATION = new RegExp(
   `([${UNICODE_BULLETS}—–―‑…])`,
   "g",
 );
+const PROTECTED_CONTACT_SPAN =
+  /(https?:\/\/[^\s<>"']+|[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+)/gi;
 
 function normalizeUnicodeText(value, preserveMessengerPunctuation) {
-  if (!preserveMessengerPunctuation) return value.normalize("NFKC");
+  return replaceOutsideContactSpans(value, (segment) => {
+    if (!preserveMessengerPunctuation) return segment.normalize("NFKC");
 
-  return value
-    .split(MESSENGER_PUNCTUATION)
-    .map((segment, index) => (index % 2 === 1 ? segment : segment.normalize("NFKC")))
-    .join("");
+    return segment
+      .split(MESSENGER_PUNCTUATION)
+      .map((part, index) => (index % 2 === 1 ? part : part.normalize("NFKC")))
+      .join("");
+  });
 }
 
 /**
@@ -211,20 +215,32 @@ export function normalizeMessengerPunctuation(value) {
     "- ",
   );
 
-  return text
-    .split(/(\bhttps?:\/\/[^\s<>"']+)/gi)
-    .map((segment, index) => {
-      if (index % 2 === 1) return segment;
-      return segment
-        .replace(/[•●◦○▪▫■□‣⁃]+/g, " - ")
-        .replace(/[·∙⋅]+/g, " / ")
-        .replace(/[—–―]+/g, " - ")
-        .replace(/‑/g, "-")
-        .replace(/…/g, "...")
-        .replace(/[ \t]{2,}/g, " ");
-    })
-    .join("")
-    .trimEnd();
+  return replaceOutsideContactSpans(text, (segment) =>
+    segment
+      .replace(/[•●◦○▪▫■□‣⁃]+/g, " - ")
+      .replace(/[·∙⋅]+/g, " / ")
+      .replace(/[—–―]+/g, " - ")
+      .replace(/‑/g, "-")
+      .replace(/…/g, "...")
+      .replace(/[ \t]{2,}/g, " "),
+  ).trimEnd();
+}
+
+function replaceOutsideContactSpans(value, transform) {
+  const text = String(value ?? "");
+  let output = "";
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(PROTECTED_CONTACT_SPAN)) {
+    const [span] = match;
+    const start = match.index ?? 0;
+    output += transform(text.slice(lastIndex, start));
+    output += span;
+    lastIndex = start + span.length;
+  }
+
+  output += transform(text.slice(lastIndex));
+  return output;
 }
 
 function repairUrls(line) {
@@ -310,6 +326,10 @@ function endsAsContinuation(line) {
 }
 
 function joinLines(previous, line) {
+  if (/https?:\/\/\S*$/i.test(previous) && /^[/?#&]/.test(line)) return `${previous}${line}`;
+  if (/@$/.test(previous) && /^[a-z0-9-]+(?:\.[a-z0-9-]+)+\b/i.test(line)) {
+    return `${previous}${line}`;
+  }
   if (/\/$/.test(previous)) return `${previous} ${line}`.replace(/ {2,}/g, " ");
   if (/[:(]$/.test(previous)) return `${previous} ${line}`;
   if (/^https?:\/\//i.test(line)) return `${previous} ${line}`;
