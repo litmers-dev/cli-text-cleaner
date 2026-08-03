@@ -65,6 +65,20 @@ test("keeps normal text and URLs separate from a preceding bullet item", () => {
   );
 });
 
+test("joins only obvious wrapped continuations after list items", () => {
+  const source = [
+    "• 첫 번째 항목은",
+    "추가 설명이 이어집니다.",
+    "1. 두 번째 항목은",
+    "another line continues.",
+  ].join("\n");
+
+  assert.equal(
+    cleanText(source),
+    "- 첫 번째 항목은 추가 설명이 이어집니다.\n1. 두 번째 항목은 another line continues.",
+  );
+});
+
 test("allows messenger punctuation normalization to be disabled", () => {
   const source = "• 항목\n기획·디자인 — 원문…";
 

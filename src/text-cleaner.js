@@ -279,22 +279,30 @@ function pushBlank(output) {
 
 function isStandalone(line, options) {
   if (!options.preserveBullets) return false;
-  return (
-    /^\d+[.)]\s+/.test(line) ||
-    BULLET_LINE.test(line) ||
-    /^#{1,6}\s+/.test(line)
-  );
+  return isListItem(line) || /^#{1,6}\s+/.test(line);
 }
 
 function shouldAppendToPrevious(previous, line, options) {
-  if (options.preserveBullets && BULLET_LINE.test(previous)) return false;
-  if (options.preserveBullets && /^\d+[.)]\s+/.test(previous)) return false;
+  if (options.preserveBullets && isListItem(line)) return false;
+  if (options.preserveBullets && isListItem(previous)) {
+    return isLikelyListContinuation(previous, line);
+  }
   if (/^https?:\/\//i.test(line) && /:$/.test(previous)) return true;
   if (/^[A-Za-z0-9._%+-]+@/.test(line) && /\/$/.test(previous)) return true;
   if (/^[가-힣A-Za-z0-9([{]/.test(line) && endsAsContinuation(previous)) return true;
-  if (options.preserveBullets && BULLET_LINE.test(line)) return false;
-  if (options.preserveBullets && /^\d+[.)]\s+/.test(line)) return false;
   return !/[.!?。)]$/.test(previous) && !/:$/.test(previous);
+}
+
+function isListItem(line) {
+  return BULLET_LINE.test(line) || /^\d+[.)]\s+/.test(line);
+}
+
+function isLikelyListContinuation(previous, line) {
+  return (
+    /(?:[,/→:·-]|\[$|(?:은|는|을|를|에서|에게|으로|부터|까지|처럼|보다|및|또는|그리고|하며|하고|해서|되어|되는|있는|없는|위해|통해|대해|따라|경우|때문에))$/.test(
+      previous,
+    ) || /^[a-z]/.test(line)
+  );
 }
 
 function endsAsContinuation(line) {
