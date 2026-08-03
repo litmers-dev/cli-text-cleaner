@@ -123,6 +123,78 @@ test("repairs wrapped email domains without inserting spaces after @", () => {
   );
 });
 
+test("removes fence markers while preserving fenced command structure and spacing", () => {
+  const source = [
+    "실행 순서:",
+    "```sh",
+    "  pnpm   lint",
+    "curl -H 'X-Test:  1' \\",
+    "  https://docs.example.com/a?x=1&y=2",
+    "```",
+    "다음 단계",
+  ].join("\n");
+
+  assert.equal(
+    cleanText(source),
+    [
+      "실행 순서:",
+      "  pnpm   lint",
+      "curl -H 'X-Test:  1' \\",
+      "  https://docs.example.com/a?x=1&y=2",
+      "다음 단계",
+    ].join("\n"),
+  );
+});
+
+test("preserves fence markers and exact fenced content when Markdown cleanup is disabled", () => {
+  const source = [
+    "앞 문단",
+    "```txt",
+    "  keep   spacing",
+    "",
+    "email @ example . com",
+    "```",
+    "뒤 문단",
+  ].join("\n");
+
+  assert.equal(
+    cleanText(source, { stripMarkdown: false }),
+    source,
+  );
+});
+
+test("handles unclosed fenced blocks deterministically without merging surrounding prose", () => {
+  const source = [
+    "before",
+    "~~~bash",
+    "  npm   run build",
+    "echo done",
+  ].join("\n");
+
+  assert.equal(
+    cleanText(source),
+    [
+      "before",
+      "  npm   run build",
+      "echo done",
+    ].join("\n"),
+  );
+});
+
+test("still removes terminal control sequences inside protected fenced content", () => {
+  const esc = "\u001b";
+  const source = `\`\`\`sh\n${esc}[31mnpm run build${esc}[0m\n\`\`\``;
+
+  assert.equal(cleanText(source), "npm run build");
+});
+
+test("does not reinterpret user text that resembles an internal fence marker", () => {
+  const markerLikeText = "\uE000F0061\uE001";
+  const source = `${markerLikeText}\n\`\`\`txt\nactual\n\`\`\``;
+
+  assert.equal(cleanText(source), `${markerLikeText}\nactual`);
+});
+
 test("strips CSI, OSC, DCS, APC, PM, and SOS terminal sequences", () => {
   const esc = "\u001b";
   const source = [

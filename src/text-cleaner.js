@@ -18,6 +18,8 @@ const C1_OSC = 0x9d;
 const C1_PM = 0x9e;
 const C1_APC = 0x9f;
 const C1_ST = 0x9c;
+const PROTECTED_FENCE_LINE_PREFIX_BASE = "\uE000F";
+const PROTECTED_FENCE_LINE_SUFFIX = "\uE001";
 
 /**
  * Remove terminal control sequences without interpreting or executing them.
@@ -130,10 +132,6 @@ export function cleanText(raw, options = DEFAULT_OPTIONS) {
   const settings = { ...DEFAULT_OPTIONS, ...(options ?? {}) };
   let text = String(raw ?? "").replace(/\r\n?/g, "\n");
 
-  if (settings.normalizeUnicode && typeof text.normalize === "function") {
-    text = normalizeUnicodeText(text, !settings.normalizePunctuation);
-  }
-
   if (settings.stripAnsi) {
     text = stripTerminalSequences(text);
   }
@@ -142,6 +140,14 @@ export function cleanText(raw, options = DEFAULT_OPTIONS) {
     .replace(/[\u200b\u200c\u200d\u2060\ufeff]/g, "")
     .replace(/\u00a0/g, " ")
     .replace(/[ \t]+\n/g, "\n");
+
+  const fenceProtection = protectFencedBlockLines(text, settings.stripMarkdown);
+  text = fenceProtection.text;
+  settings.protectedFenceLinePrefix = fenceProtection.prefix;
+
+  if (settings.normalizeUnicode && typeof text.normalize === "function") {
+    text = normalizeUnicodeText(text, !settings.normalizePunctuation);
+  }
 
   if (settings.stripMarkdown) {
     text = stripMarkdownDecorations(text);
@@ -165,10 +171,12 @@ export function cleanText(raw, options = DEFAULT_OPTIONS) {
     );
   }
 
-  return result;
+  return restoreProtectedFenceLines(result, settings.protectedFenceLinePrefix);
 }
 
 function normalizeLine(line, options) {
+  if (isProtectedFenceLine(line, options.protectedFenceLinePrefix)) return line;
+
   let next = line
     .replace(/^[\t ]+/, "")
     .replace(/^(?:▏[\t ]*)+/, "")
@@ -268,6 +276,11 @@ function buildParagraphs(lines, options) {
       continue;
     }
 
+    if (isProtectedFenceLine(line, options.protectedFenceLinePrefix)) {
+      output.push(line);
+      continue;
+    }
+
     if (isStandalone(line, options)) {
       output.push(line);
       continue;
@@ -299,6 +312,12 @@ function isStandalone(line, options) {
 }
 
 function shouldAppendToPrevious(previous, line, options) {
+  if (
+    isProtectedFenceLine(previous, options.protectedFenceLinePrefix) ||
+    isProtectedFenceLine(line, options.protectedFenceLinePrefix)
+  ) {
+    return false;
+  }
   if (options.preserveBullets && isListItem(line)) return false;
   if (options.preserveBullets && isListItem(previous)) {
     return isLikelyListContinuation(previous, line);
@@ -343,4 +362,75 @@ function normalizeAggressiveSlashes(text) {
       index % 2 === 1 ? segment : segment.replace(/[ \t]*\/[ \t]*/g, " / "),
     )
     .join("");
+}
+
+function protectFencedBlockLines(text, stripMarkers) {
+  const protectedLines = [];
+  const prefix = createProtectedFenceLinePrefix(text);
+  let fence = null;
+
+  for (const line of text.split("\n")) {
+    const candidate = line.match(/^\s{0,3}(`{3,}|~{3,})(.*)$/);
+
+    if (fence === null && candidate) {
+      fence = { marker: candidate[1][0], length: candidate[1].length };
+      if (!stripMarkers) protectedLines.push(encodeProtectedFenceLine(line, prefix));
+      continue;
+    }
+
+    if (fence !== null) {
+      if (isClosingFenceLine(line, fence)) {
+        if (!stripMarkers) protectedLines.push(encodeProtectedFenceLine(line, prefix));
+        fence = null;
+        continue;
+      }
+
+      protectedLines.push(encodeProtectedFenceLine(line, prefix));
+      continue;
+    }
+
+    protectedLines.push(line);
+  }
+
+  return { text: protectedLines.join("\n"), prefix };
+}
+
+function createProtectedFenceLinePrefix(text) {
+  let prefix = PROTECTED_FENCE_LINE_PREFIX_BASE;
+  while (text.includes(prefix)) prefix += "F";
+  return prefix;
+}
+
+function isClosingFenceLine(line, fence) {
+  const candidate = line.match(/^\s{0,3}(`{3,}|~{3,})\s*$/);
+  return (
+    candidate !== null &&
+    candidate[1][0] === fence.marker &&
+    candidate[1].length >= fence.length
+  );
+}
+
+function encodeProtectedFenceLine(line, prefix) {
+  let hex = "";
+  for (let index = 0; index < line.length; index += 1) {
+    hex += line.charCodeAt(index).toString(16).padStart(4, "0");
+  }
+  return `${prefix}${hex}${PROTECTED_FENCE_LINE_SUFFIX}`;
+}
+
+function restoreProtectedFenceLines(text, prefix) {
+  return text.replace(
+    new RegExp(`${prefix}([0-9a-f]*)${PROTECTED_FENCE_LINE_SUFFIX}`, "g"),
+    (_match, hex) => {
+      let line = "";
+      for (let index = 0; index < hex.length; index += 4) {
+        line += String.fromCharCode(Number.parseInt(hex.slice(index, index + 4), 16));
+      }
+      return line;
+    },
+  );
+}
+
+function isProtectedFenceLine(line, prefix) {
+  return line.startsWith(prefix) && line.endsWith(PROTECTED_FENCE_LINE_SUFFIX);
 }
