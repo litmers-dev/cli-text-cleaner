@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build and test output
+dist/
+_screenshots/
+coverage/
+.nyc_output/
+.vite/
+.eslintcache
+
+# Vercel
+.vercel/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local caches and temporary files
+.cache/
+.tmp/
+tmp/
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Operating systems
+.DS_Store
+Thumbs.db

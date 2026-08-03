@@ -1,0 +1,32 @@
+{
+  "name": "cli-text-cleaner",
+  "version": "0.1.0",
+  "description": "A browser-only utility for cleaning text copied from terminals and CLIs.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "Cigro Inc.",
+  "homepage": "https://cli-text-cleaner.vercel.app/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/litmers-dev/cli-text-cleaner.git"
+  },
+  "bugs": {
+    "url": "https://github.com/litmers-dev/cli-text-cleaner/issues"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "node ./node_modules/vite/bin/vite.js",
+    "build": "node ./node_modules/vite/bin/vite.js build",
+    "preview": "node ./node_modules/vite/bin/vite.js preview",
+    "test": "node --test",
+    "lint": "node ./node_modules/eslint/bin/eslint.js src test eslint.config.js --max-warnings=0",
+    "check": "npm run lint && npm test"
+  },
+  "devDependencies": {
+    "eslint": "10.8.0",
+    "vite": "8.2.0"
+  }
+}

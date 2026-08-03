@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a reproducible problem with cleaning behavior or the web interface.
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Use synthetic text and remove credentials, personal data, and private terminal output.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I removed sensitive information from this report and its sample input.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Enter "live demo" or a commit hash.
+      placeholder: live demo
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, browser version, operating system, and device type.
+      placeholder: Firefox 128 on macOS 15, desktop
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the selected mode and option states.
+      placeholder: |
+        1. Open the app.
+        2. Select ...
+        3. Paste ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample
+    attributes:
+      label: Sanitized sample input
+      description: Provide the smallest synthetic example that reproduces the problem.
+      render: text
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add any other non-sensitive details that may help.

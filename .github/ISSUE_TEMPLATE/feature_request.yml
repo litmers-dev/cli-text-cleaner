@@ -1,0 +1,59 @@
+name: Feature request
+description: Suggest an improvement to cleaning behavior or the web interface.
+title: "[Feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Please describe the user problem before the proposed implementation.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for a similar request.
+          required: true
+        - label: This report contains no credentials, personal data, or private terminal output.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What workflow is difficult today, and who does it affect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the desired input, option or mode, and output.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Sanitized example
+      description: Use synthetic input and expected output when relevant.
+      render: text
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Explain any current workaround or simpler alternative.
+
+  - type: dropdown
+    id: privacy
+    attributes:
+      label: Browser-only privacy
+      description: Can the feature run entirely in the browser without sending input elsewhere?
+      options:
+        - "Yes"
+        - "No"
+        - "Unsure"
+    validations:
+      required: true

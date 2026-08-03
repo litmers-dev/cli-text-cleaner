@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="터미널과 CLI에서 복사한 텍스트를 카톡과 이메일에 바로 붙여넣기 좋은 평문으로 정리합니다."
+    />
+    <meta name="theme-color" content="#07080a" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CLI Text Cleaner" />
+    <meta
+      property="og:description"
+      content="터미널과 CLI에서 복사한 텍스트를 카톡과 이메일용 평문으로 안전하게 정리합니다."
+    />
+    <meta property="og:url" content="https://cli-text-cleaner.vercel.app/" />
+    <link rel="canonical" href="https://cli-text-cleaner.vercel.app/" />
+    <title>CLI Text Cleaner</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="app-header">
+        <div>
+          <p class="kicker">Browser-only text utility</p>
+          <h1>CLI Text Cleaner</h1>
+          <p class="intro">
+            터미널에서 복사한 글을 카톡이나 이메일에 바로 붙여넣기 좋은 평문으로 정리합니다.
+          </p>
+        </div>
+        <div class="privacy-note">
+          <span class="privacy-dot" aria-hidden="true"></span>
+          서버 전송 없음
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="toolbar" aria-label="정리 옵션">
+          <div class="mode-group" role="radiogroup" aria-label="정리 강도">
+            <label class="mode-option">
+              <input type="radio" name="mode" value="smart" checked />
+              <span>문서 정리</span>
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="mode" value="lines" />
+              <span>라인 유지</span>
+            </label>
+            <label class="mode-option">
+              <input type="radio" name="mode" value="aggressive" />
+              <span>강하게 정리</span>
+            </label>
+          </div>
+
+          <div class="toggles" aria-label="세부 옵션">
+            <label class="toggle-chip">
+              <input type="checkbox" id="stripAnsi" checked />
+              <span>ANSI 제거</span>
+            </label>
+            <label class="toggle-chip">
+              <input type="checkbox" id="collapseSpaces" checked />
+              <span>공백 압축</span>
+            </label>
+            <label class="toggle-chip">
+              <input type="checkbox" id="preserveBullets" checked />
+              <span>목록 보존</span>
+            </label>
+            <label class="toggle-chip">
+              <input type="checkbox" id="stripMarkdown" checked />
+              <span>마크다운 제거</span>
+            </label>
+            <label class="toggle-chip">
+              <input type="checkbox" id="normalizePunctuation" checked />
+              <span>문장부호 단순화</span>
+            </label>
+            <label class="toggle-chip">
+              <input type="checkbox" id="normalizeUnicode" checked />
+              <span>문자 정규화</span>
+            </label>
+          </div>
+
+          <div class="actions">
+            <button class="tool-button secondary" id="sampleButton" type="button" data-icon="file-text">
+              샘플
+            </button>
+            <button class="tool-button secondary" id="swapButton" type="button" data-icon="arrow-left-right">
+              교체
+            </button>
+            <button class="tool-button ghost" id="clearButton" type="button" data-icon="eraser">
+              비우기
+            </button>
+            <button class="tool-button primary" id="copyButton" type="button" data-icon="copy">
+              복사
+            </button>
+          </div>
+        </section>
+
+        <section class="editor-grid" aria-label="텍스트 정리 작업영역">
+          <article class="editor-panel">
+            <div class="panel-head">
+              <label for="sourceText">원본</label>
+              <span id="sourceStats">0자 · 0줄</span>
+            </div>
+            <textarea
+              id="sourceText"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder="CLI, 터미널, Codex 출력에서 복사한 텍스트를 붙여넣으세요."
+            ></textarea>
+            <div class="panel-foot">
+              <span>붙여넣는 순간 자동 정리</span>
+              <button class="mini-button" type="button" id="pasteButton" data-icon="clipboard-paste">
+                붙여넣기
+              </button>
+            </div>
+          </article>
+
+          <article class="editor-panel output-panel">
+            <div class="panel-head">
+              <label for="outputText">정리 결과</label>
+              <span id="outputStats">0자 · 0줄</span>
+            </div>
+            <textarea id="outputText" spellcheck="false" readonly></textarea>
+            <div class="panel-foot">
+              <span id="changeStats">변경 없음</span>
+              <button class="mini-button" type="button" id="selectButton" data-icon="scan-text">
+                전체 선택
+              </button>
+            </div>
+          </article>
+        </section>
+
+        <section class="rules-panel" aria-label="정리 규칙">
+          <div>
+            <h2>정리 규칙</h2>
+            <p>카톡과 이메일에 바로 붙여넣을 수 있도록 줄바꿈, 들여쓰기, 문장부호를 정돈합니다.</p>
+          </div>
+          <ul>
+            <li>번호 목록은 유지하고 불릿 기호는 일반 대시(-)로 통일합니다.</li>
+            <li>중간점은 슬래시(/), 긴 대시는 일반 대시(-)로 단순화합니다.</li>
+            <li>볼드·제목·인용·구분선 표식은 지우고 본문 내용은 유지합니다.</li>
+            <li>URL, 이메일, 숫자 코드 주변 공백은 보존합니다.</li>
+          </ul>
+        </section>
+
+        <footer class="site-footer">
+          <span>MIT License · Cigro Inc.</span>
+          <a href="https://github.com/litmers-dev/cli-text-cleaner">GitHub에서 소스 보기</a>
+        </footer>
+      </main>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
