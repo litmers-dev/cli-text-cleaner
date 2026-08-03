@@ -100,6 +100,165 @@ test("normalizes standalone punctuation without touching URLs", () => {
   );
 });
 
+test("normalizeMessengerPunctuation avoids leading whitespace regressions", () => {
+  const cases = [
+    ["—third", "- third"],
+    ["–third", "- third"],
+    ["·third", "/ third"],
+    ["•• item", "- item"],
+  ];
+
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeMessengerPunctuation(input), expected, input);
+
+    const firstPass = cleanText(input, { mode: "lines", stripMarkdown: false });
+    const secondPass = cleanText(firstPass, { mode: "lines", stripMarkdown: false });
+
+    assert.equal(firstPass, expected, input);
+    assert.equal(secondPass, firstPass, input);
+  }
+});
+
+test("preserves a valid URL byte-for-byte while normalizing surrounding text", () => {
+  assert.equal(
+    cleanText("문서·안내 — https://example.com/a…b‑c·d—e", { stripMarkdown: false }),
+    "문서 / 안내 - https://example.com/a…b‑c·d—e",
+  );
+});
+
+test("preserves messenger punctuation inside internationalized email addresses", () => {
+  assert.equal(
+    cleanText("기획·디자인 — ab·cd @ example . com / 홍길동@예시.한국", {
+      mode: "lines",
+      stripMarkdown: false,
+    }),
+    "기획 / 디자인 - ab·cd@example.com / 홍길동@예시.한국",
+  );
+});
+
+test("repairs wrapped URL continuations without inserting spaces", () => {
+  const source = "주소: https://docs.example.com/path\n/next?x=1";
+
+  assert.equal(
+    cleanText(source, { stripMarkdown: false }),
+    "주소: https://docs.example.com/path/next?x=1",
+  );
+});
+
+test("repairs wrapped command-line URL continuations before code-line guards in smart and aggressive modes", () => {
+  const source = "curl https://docs.example.com/path\n/next?x=1";
+
+  for (const options of [{ stripMarkdown: false }, { mode: "aggressive", stripMarkdown: false }]) {
+    const firstPass = cleanText(source, options);
+    const secondPass = cleanText(firstPass, options);
+
+    assert.equal(firstPass, "curl https://docs.example.com/path/next?x=1");
+    assert.equal(secondPass, firstPass);
+  }
+});
+
+test("repairs wrapped email domains without inserting spaces after @", () => {
+  assert.equal(
+    cleanText("문의: hello@\nexample.com", { stripMarkdown: false }),
+    "문의: hello@example.com",
+  );
+});
+
+test("repairs wrapped command-line email continuations before code-line guards in smart and aggressive modes", () => {
+  const source = "node notify.mjs hello@\nexample.com";
+
+  for (const options of [{ stripMarkdown: false }, { mode: "aggressive", stripMarkdown: false }]) {
+    const firstPass = cleanText(source, options);
+    const secondPass = cleanText(firstPass, options);
+
+    assert.equal(firstPass, "node notify.mjs hello@example.com");
+    assert.equal(secondPass, firstPass);
+  }
+});
+
+test("keeps a normalized slash separator line separate from a preceding URL", () => {
+  const source = "https://docs.example.com/a/b\n·third";
+  const firstPass = cleanText(source, { mode: "aggressive", stripMarkdown: false });
+
+  assert.equal(firstPass, "https://docs.example.com/a/b\n/ third");
+  assert.equal(
+    cleanText(firstPass, { mode: "aggressive", stripMarkdown: false }),
+    firstPass,
+  );
+});
+
+test("removes fence markers while preserving fenced command structure and spacing", () => {
+  const source = [
+    "실행 순서:",
+    "```sh",
+    "  pnpm   lint",
+    "curl -H 'X-Test:  1' \\",
+    "  https://docs.example.com/a?x=1&y=2",
+    "```",
+    "다음 단계",
+  ].join("\n");
+
+  assert.equal(
+    cleanText(source),
+    [
+      "실행 순서:",
+      "  pnpm   lint",
+      "curl -H 'X-Test:  1' \\",
+      "  https://docs.example.com/a?x=1&y=2",
+      "다음 단계",
+    ].join("\n"),
+  );
+});
+
+test("preserves fence markers and exact fenced content when Markdown cleanup is disabled", () => {
+  const source = [
+    "앞 문단",
+    "```txt",
+    "  keep   spacing",
+    "",
+    "email @ example . com",
+    "```",
+    "뒤 문단",
+  ].join("\n");
+
+  assert.equal(
+    cleanText(source, { stripMarkdown: false }),
+    source,
+  );
+});
+
+test("handles unclosed fenced blocks deterministically without merging surrounding prose", () => {
+  const source = [
+    "before",
+    "~~~bash",
+    "  npm   run build",
+    "echo done",
+  ].join("\n");
+
+  assert.equal(
+    cleanText(source),
+    [
+      "before",
+      "  npm   run build",
+      "echo done",
+    ].join("\n"),
+  );
+});
+
+test("still removes terminal control sequences inside protected fenced content", () => {
+  const esc = "\u001b";
+  const source = `\`\`\`sh\n${esc}[31mnpm run build${esc}[0m\n\`\`\``;
+
+  assert.equal(cleanText(source), "npm run build");
+});
+
+test("does not reinterpret user text that resembles an internal fence marker", () => {
+  const markerLikeText = "\uE000F0061\uE001";
+  const source = `${markerLikeText}\n\`\`\`txt\nactual\n\`\`\``;
+
+  assert.equal(cleanText(source), `${markerLikeText}\nactual`);
+});
+
 test("strips CSI, OSC, DCS, APC, PM, and SOS terminal sequences", () => {
   const esc = "\u001b";
   const source = [
@@ -172,10 +331,307 @@ test("removes only leading CLI quote decorations", () => {
   );
 });
 
-test("aggressive mode collapses paragraph gaps and spaces standalone slashes without corrupting URLs", () => {
+test("aggressive mode preserves literal slashes and paragraph boundaries", () => {
   const source = "alpha/beta\n\nsee https://docs.example.com/a/b";
 
   const result = cleanText(source, { mode: "aggressive", stripMarkdown: false });
 
-  assert.equal(result, "alpha / beta\nsee https://docs.example.com/a/b");
+  assert.equal(result, "alpha/beta\n\nsee https://docs.example.com/a/b");
+});
+
+test("aggressive mode preserves paths, dates, and ratios", () => {
+  const source = "/etc/profile\n2026/08/03\n3/4 cup";
+
+  assert.equal(
+    cleanText(source, { mode: "aggressive", stripMarkdown: false }),
+    "/etc/profile 2026/08/03 3/4 cup",
+  );
+});
+
+test("aggressive mode joins arbitrary wrapped prose for paste-ready output", () => {
+  assert.equal(
+    cleanText("plain prose\nwrap continues", { mode: "aggressive", stripMarkdown: false }),
+    "plain prose wrap continues",
+  );
+});
+
+test("aggressive mode joins adjacent complete sentences while smart mode keeps them split", () => {
+  const source = "첫 문장입니다.\n다음 문장입니다.";
+
+  assert.equal(cleanText(source, { stripMarkdown: false }), source);
+  assert.equal(
+    cleanText(source, { mode: "aggressive", stripMarkdown: false }),
+    "첫 문장입니다. 다음 문장입니다.",
+  );
+});
+
+test("aggressive mode keeps the blank-line regression stable after the first pass", () => {
+  const source = "a\n\n\n b";
+  const firstPass = cleanText(source, { mode: "aggressive", stripMarkdown: false });
+
+  assert.equal(firstPass, "a\n\nb");
+  assert.equal(
+    cleanText(firstPass, { mode: "aggressive", stripMarkdown: false }),
+    firstPass,
+  );
+});
+
+test("aggressive mode collapses excess blank lines to one paragraph gap", () => {
+  const source = "alpha beta\n\n\n gamma delta";
+  const firstPass = cleanText(source, { mode: "aggressive", stripMarkdown: false });
+
+  assert.equal(firstPass, "alpha beta\n\ngamma delta");
+  assert.equal(
+    cleanText(firstPass, { mode: "aggressive", stripMarkdown: false }),
+    firstPass,
+  );
+});
+
+test("aggressive mode is idempotent across representative inputs", () => {
+  const samples = [
+    "plain prose\nwrap continues",
+    "• first\n· second",
+    "https://docs.example.com/a/b\n\nsee more",
+    "문의: hello@\nexample.com",
+    "\u001b[31mred\u001b[0m text",
+    "before\n\n---\n\nafter",
+    "a\n\n\n b",
+    "alpha beta\n\n\n gamma delta",
+  ];
+
+  for (const sample of samples) {
+    const firstPass = cleanText(sample, { mode: "aggressive" });
+    const secondPass = cleanText(firstPass, { mode: "aggressive" });
+
+    assert.equal(secondPass, firstPass, sample);
+  }
+});
+
+test("leading em dash normalization is idempotent in lines and smart modes", () => {
+  const firstLinesPass = cleanText("— third item", { mode: "lines", stripMarkdown: false });
+
+  assert.equal(firstLinesPass, "- third item");
+  assert.equal(
+    cleanText(firstLinesPass, { mode: "lines", stripMarkdown: false }),
+    firstLinesPass,
+  );
+  assert.equal(cleanText("— third item", { stripMarkdown: false }), "- third item");
+});
+
+test("common fenced JS remains line-separated after stripMarkdown on repeated smart passes", () => {
+  const source = [
+    "before",
+    "```js",
+    "const x = 1;",
+    "console.log(x);",
+    "```",
+    "after",
+  ].join("\n");
+  const firstPass = cleanText(source);
+
+  assert.equal(firstPass, "before\nconst x = 1;\nconsole.log(x);\nafter");
+  assert.equal(cleanText(firstPass), firstPass);
+});
+
+test("common fenced shell commands remain line-separated after stripMarkdown on repeated smart passes", () => {
+  const source = [
+    "before",
+    "```sh",
+    "npm install",
+    "npm run build",
+    "```",
+    "after",
+  ].join("\n");
+  const firstPass = cleanText(source);
+
+  assert.equal(firstPass, "before\nnpm install\nnpm run build\nafter");
+  assert.equal(cleanText(firstPass), firstPass);
+});
+
+test("common fenced shell commands remain line-separated after stripMarkdown on repeated aggressive passes", () => {
+  const source = [
+    "before",
+    "```sh",
+    "npm install",
+    "npm run build",
+    "```",
+    "after",
+  ].join("\n");
+  const firstPass = cleanText(source, { mode: "aggressive" });
+
+  assert.equal(firstPass, "before\nnpm install\nnpm run build\nafter");
+  assert.equal(cleanText(firstPass, { mode: "aggressive" }), firstPass);
+});
+
+test("fenced JS keeps internal blank lines on repeated aggressive passes after Markdown stripping", () => {
+  const source = [
+    "before",
+    "```js",
+    "const x = 1;",
+    "",
+    "console.log(x);",
+    "```",
+    "after",
+  ].join("\n");
+  const firstPass = cleanText(source, { mode: "aggressive" });
+
+  assert.equal(firstPass, "before\nconst x = 1;\n\nconsole.log(x);\nafter");
+  assert.equal(cleanText(firstPass, { mode: "aggressive" }), firstPass);
+});
+
+test("fenced JS keeps repeated internal blank lines on repeated smart passes after Markdown stripping", () => {
+  const source = [
+    "before",
+    "```js",
+    "const x = 1;",
+    "",
+    "",
+    "console.log(x);",
+    "```",
+    "after",
+  ].join("\n");
+  const firstPass = cleanText(source);
+
+  assert.equal(firstPass, "before\nconst x = 1;\n\n\nconsole.log(x);\nafter");
+  assert.equal(cleanText(firstPass), firstPass);
+});
+
+test("fenced JS keeps repeated internal blank lines on repeated aggressive passes after Markdown stripping", () => {
+  const source = [
+    "before",
+    "```js",
+    "const x = 1;",
+    "",
+    "",
+    "console.log(x);",
+    "```",
+    "after",
+  ].join("\n");
+  const firstPass = cleanText(source, { mode: "aggressive" });
+
+  assert.equal(firstPass, "before\nconst x = 1;\n\n\nconsole.log(x);\nafter");
+  assert.equal(cleanText(firstPass, { mode: "aggressive" }), firstPass);
+});
+
+test("common function, brace, package command, and comment lines remain separate on repeated passes", () => {
+  const sources = [
+    ["before", "```js", "function greet() {", "return 1;", "}", "```", "after"],
+    ["before", "```sh", "npm run lint", "npm run build", "```", "after"],
+    ["before", "```js", "// note", "console.log('done');", "```", "after"],
+  ];
+
+  for (const sourceLines of sources) {
+    const source = sourceLines.join("\n");
+
+    for (const options of [{}, { mode: "aggressive" }]) {
+      const firstPass = cleanText(source, options);
+      assert.equal(cleanText(firstPass, options), firstPass, source);
+    }
+  }
+});
+
+test("does not mistake common English prose starters for code", () => {
+  const cases = [
+    ["문의:\nreturn policy applies", "문의: return policy applies"],
+    ["가이드:\ntry this option first", "가이드: try this option first"],
+    ["메모:\ngit status page is clean", "메모: git status page is clean"],
+  ];
+
+  for (const [source, expected] of cases) {
+    assert.equal(cleanText(source, { stripMarkdown: false }), expected);
+    assert.equal(cleanText(source, { mode: "aggressive", stripMarkdown: false }), expected);
+  }
+});
+
+test("normalizeMessengerPunctuation does not compress repeated spaces by itself", () => {
+  assert.equal(normalizeMessengerPunctuation("alpha  beta"), "alpha  beta");
+});
+
+test("collapseSpaces false preserves repeated interior spaces when punctuation normalization stays enabled", () => {
+  assert.equal(
+    cleanText("alpha  beta", {
+      mode: "lines",
+      stripMarkdown: false,
+      collapseSpaces: false,
+    }),
+    "alpha  beta",
+  );
+});
+
+test("collapseSpaces false preserves repeated spaces when joined prose lines are merged", () => {
+  assert.equal(
+    cleanText("alpha  beta\ncontinues", {
+      stripMarkdown: false,
+      collapseSpaces: false,
+    }),
+    "alpha  beta continues",
+  );
+});
+
+test("aggressive mode respects collapseSpaces false for repeated interior spaces", () => {
+  assert.equal(
+    cleanText("alpha  beta", {
+      mode: "aggressive",
+      stripMarkdown: false,
+      collapseSpaces: false,
+    }),
+    "alpha  beta",
+  );
+});
+
+test("determinism matrix covers smart and aggressive edge cases beyond the named regressions", () => {
+  const matrix = [
+    {
+      input: "주소:\nhttps://docs.example.com/path",
+      options: { mode: "aggressive", stripMarkdown: false },
+      expected: "주소: https://docs.example.com/path",
+    },
+    {
+      input: "문의:\nhello@\nexample.com",
+      options: { mode: "aggressive", stripMarkdown: false },
+      expected: "문의: hello@example.com",
+    },
+    {
+      input: "a\n\n\n b",
+      options: { mode: "aggressive", stripMarkdown: false },
+      expected: "a\n\nb",
+    },
+    {
+      input: "alpha beta\n\n\n gamma delta",
+      options: { mode: "aggressive", stripMarkdown: false },
+      expected: "alpha beta\n\ngamma delta",
+    },
+    {
+      input: "— third item",
+      options: { mode: "lines", stripMarkdown: false },
+      expected: "- third item",
+    },
+    {
+      input: "alpha  beta\ncontinues",
+      options: { stripMarkdown: false, collapseSpaces: false },
+      expected: "alpha  beta continues",
+    },
+    {
+      input: "before\nconst x = 1;\nconsole.log(x);\nafter",
+      options: {},
+      expected: "before\nconst x = 1;\nconsole.log(x);\nafter",
+    },
+  ];
+
+  for (const { input, options, expected } of matrix) {
+    const firstPass = cleanText(input, options);
+    const secondPass = cleanText(firstPass, options);
+
+    assert.equal(firstPass, expected, input);
+    assert.equal(secondPass, firstPass, input);
+  }
+});
+
+test("treats bare keyword prose like 'class action' as wrapped text in smart mode", () => {
+  const source = "Topic:\nclass action";
+  const firstPass = cleanText(source, { stripMarkdown: false });
+  const secondPass = cleanText(firstPass, { stripMarkdown: false });
+
+  assert.equal(firstPass, "Topic: class action");
+  assert.equal(secondPass, firstPass);
 });
