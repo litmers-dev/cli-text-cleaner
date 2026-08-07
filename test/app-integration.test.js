@@ -122,7 +122,7 @@ test("can disable chat and email punctuation normalization", async () => {
   assert.equal(output.value, source.value);
 });
 
-test("allows editing the cleaned result and copies the edited text", async () => {
+test("syncs edited output back to the source and copies the edited text", async () => {
   let copied = "";
   const { elements } = await loadApp({
     writeText: async (value) => {
@@ -137,8 +137,10 @@ test("allows editing the cleaned result and copies the edited text", async () =>
   output.value = "직접 수정한 최종 문구";
   output.dispatch("input");
 
+  assert.equal(source.value, "직접 수정한 최종 문구");
+  assert.equal(elements.get("#sourceStats").textContent, "12자 · 1줄");
   assert.equal(elements.get("#outputStats").textContent, "12자 · 1줄");
-  assert.equal(elements.get("#changeStats").textContent, "3자 증가");
+  assert.equal(elements.get("#changeStats").textContent, "양쪽 동기화됨");
 
   await elements.get("#copyButton").dispatch("click");
   assert.equal(copied, "직접 수정한 최종 문구");

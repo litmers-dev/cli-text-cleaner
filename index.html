@@ -109,7 +109,7 @@
               placeholder="CLI, 터미널, Codex 출력에서 복사한 텍스트를 붙여넣으세요."
             ></textarea>
             <div class="panel-foot">
-              <span>붙여넣는 순간 자동 정리</span>
+              <span>좌우 수정 내용 자동 동기화</span>
               <button class="mini-button" type="button" id="pasteButton" data-icon="clipboard-paste">
                 붙여넣기
               </button>
@@ -118,14 +118,14 @@
 
           <article class="editor-panel output-panel">
             <div class="panel-head">
-              <label for="outputText">정리 결과 <span class="editable-label">직접 수정 가능</span></label>
+              <label for="outputText">정리 결과 <span class="editable-label">양방향 동기화</span></label>
               <span id="outputStats">0자 · 0줄</span>
             </div>
             <textarea
               id="outputText"
               spellcheck="false"
               autocomplete="off"
-              placeholder="정리된 결과가 여기에 표시되며, 필요한 문구를 직접 수정할 수 있습니다."
+              placeholder="정리 결과를 직접 수정하면 원본에도 즉시 반영됩니다."
             ></textarea>
             <div class="panel-foot">
               <span id="changeStats">변경 없음</span>

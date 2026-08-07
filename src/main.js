@@ -50,6 +50,14 @@ function updateOutputMetrics() {
   updateChangeStats(raw, result);
 }
 
+function syncFromOutput() {
+  const result = outputText.value;
+  sourceText.value = result;
+  sourceStats.textContent = formatStats(result);
+  outputStats.textContent = formatStats(result);
+  changeStats.textContent = result ? "양쪽 동기화됨" : "변경 없음";
+}
+
 function formatStats(value) {
   const chars = value.length.toLocaleString("ko-KR");
   const lines = value ? value.split("\n").length.toLocaleString("ko-KR") : "0";
@@ -108,7 +116,7 @@ function showToast(message, type = "success") {
 }
 
 sourceText.addEventListener("input", update);
-outputText.addEventListener("input", updateOutputMetrics);
+outputText.addEventListener("input", syncFromOutput);
 optionInputs.forEach((input) => input.addEventListener("change", update));
 
 document.querySelector("#sampleButton").addEventListener("click", () => {
