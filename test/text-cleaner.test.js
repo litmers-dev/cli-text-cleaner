@@ -46,6 +46,31 @@ test("keeps consecutive bullet items on separate lines", () => {
   assert.equal(cleanText("• 첫 번째\n· 두 번째"), "- 첫 번째\n- 두 번째");
 });
 
+test("removes CLI quote gutters and preserves quoted paragraph breaks", () => {
+  const source = [
+    "▎ 첫 번째 문단입니다.",
+    "▎",
+    "▎ 두 번째 문단입니다.",
+    "▎",
+    "▎ 세 번째 문단입니다.",
+  ].join("\n");
+
+  assert.equal(
+    cleanText(source),
+    [
+      "첫 번째 문단입니다.",
+      "",
+      "두 번째 문단입니다.",
+      "",
+      "세 번째 문단입니다.",
+    ].join("\n"),
+  );
+
+  for (const gutter of ["▏", "▎", "▍", "▌"]) {
+    assert.equal(cleanText(`${gutter} 내용`, { mode: "lines" }), "내용");
+  }
+});
+
 test("keeps normal text and URLs separate from a preceding bullet item", () => {
   const source = [
     "• 첫 번째",
