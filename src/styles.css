@@ -325,6 +325,13 @@ h1 {
   font-weight: 700;
 }
 
+.panel-head .editable-label {
+  margin-left: var(--space-2);
+  color: var(--accent-info);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .panel-head span,
 .panel-foot {
   color: var(--text-muted);

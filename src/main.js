@@ -40,8 +40,14 @@ function update() {
   outputText.value = cleaned;
   outputText.scrollTop = 0;
   sourceStats.textContent = formatStats(raw);
-  outputStats.textContent = formatStats(cleaned);
-  updateChangeStats(raw, cleaned);
+  updateOutputMetrics();
+}
+
+function updateOutputMetrics() {
+  const raw = sourceText.value;
+  const result = outputText.value;
+  outputStats.textContent = formatStats(result);
+  updateChangeStats(raw, result);
 }
 
 function formatStats(value) {
@@ -102,6 +108,7 @@ function showToast(message, type = "success") {
 }
 
 sourceText.addEventListener("input", update);
+outputText.addEventListener("input", updateOutputMetrics);
 optionInputs.forEach((input) => input.addEventListener("change", update));
 
 document.querySelector("#sampleButton").addEventListener("click", () => {

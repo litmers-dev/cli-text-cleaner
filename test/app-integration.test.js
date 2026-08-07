@@ -122,6 +122,28 @@ test("can disable chat and email punctuation normalization", async () => {
   assert.equal(output.value, source.value);
 });
 
+test("allows editing the cleaned result and copies the edited text", async () => {
+  let copied = "";
+  const { elements } = await loadApp({
+    writeText: async (value) => {
+      copied = value;
+    },
+  });
+  const source = elements.get("#sourceText");
+  const output = elements.get("#outputText");
+
+  source.value = "  원본 문구  ";
+  source.dispatch("input");
+  output.value = "직접 수정한 최종 문구";
+  output.dispatch("input");
+
+  assert.equal(elements.get("#outputStats").textContent, "12자 · 1줄");
+  assert.equal(elements.get("#changeStats").textContent, "3자 증가");
+
+  await elements.get("#copyButton").dispatch("click");
+  assert.equal(copied, "직접 수정한 최종 문구");
+});
+
 test("shows a warning toast when clipboard copy is rejected", async () => {
   const { elements } = await loadApp({
     writeText: async () => {

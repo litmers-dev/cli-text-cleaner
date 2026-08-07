@@ -118,10 +118,15 @@
 
           <article class="editor-panel output-panel">
             <div class="panel-head">
-              <label for="outputText">정리 결과</label>
+              <label for="outputText">정리 결과 <span class="editable-label">직접 수정 가능</span></label>
               <span id="outputStats">0자 · 0줄</span>
             </div>
-            <textarea id="outputText" spellcheck="false" readonly></textarea>
+            <textarea
+              id="outputText"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder="정리된 결과가 여기에 표시되며, 필요한 문구를 직접 수정할 수 있습니다."
+            ></textarea>
             <div class="panel-foot">
               <span id="changeStats">변경 없음</span>
               <button class="mini-button" type="button" id="selectButton" data-icon="scan-text">
