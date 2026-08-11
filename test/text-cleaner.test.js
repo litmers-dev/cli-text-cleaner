@@ -66,9 +66,33 @@ test("removes CLI quote gutters and preserves quoted paragraph breaks", () => {
     ].join("\n"),
   );
 
-  for (const gutter of ["▏", "▎", "▍", "▌"]) {
-    assert.equal(cleanText(`${gutter} 내용`, { mode: "lines" }), "내용");
+  for (const gutter of ["▏", "▎", "▍", "▌", "│", "┃", "║"]) {
+    assert.equal(cleanText(` ${gutter} 내용`, { mode: "lines" }), "내용");
   }
+});
+
+test("removes indented vertical quote gutters and trailing separators", () => {
+  const source = [
+    "│ 첫 번째 문단입니다.",
+    " │",
+    " │ 두 번째 문단입니다.",
+    " │",
+    " │ 세 번째 문단입니다.",
+    "",
+    "",
+    "----",
+  ].join("\n");
+
+  assert.equal(
+    cleanText(source),
+    [
+      "첫 번째 문단입니다.",
+      "",
+      "두 번째 문단입니다.",
+      "",
+      "세 번째 문단입니다.",
+    ].join("\n"),
+  );
 });
 
 test("keeps normal text and URLs separate from a preceding bullet item", () => {

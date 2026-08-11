@@ -179,7 +179,7 @@ function normalizeLine(line, options) {
 
   let next = line
     .replace(/^[\t ]+/, "")
-    .replace(/^(?:[▏▎▍▌][\t ]*)+/, "")
+    .replace(/^(?:[▏▎▍▌│┃║][\t ]*)+/, "")
     .replace(/[\t ]+$/, "");
 
   if (options.normalizePunctuation) {
