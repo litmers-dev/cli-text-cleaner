@@ -17,6 +17,6 @@ Include:
 
 Do not include real credentials, personal data, or private copied text. Use synthetic examples.
 
-Relevant reports include unexpected transmission or persistence of input, script injection, clipboard abuse, and exploitable dependency vulnerabilities. Ordinary cleanup mistakes can use the public bug report form unless they create a security or privacy impact.
+Relevant reports include unexpected transmission or persistence of input, persistence outside the documented browser-local recent history, script injection, clipboard abuse, and exploitable dependency vulnerabilities. Ordinary cleanup mistakes can use the public bug report form unless they create a security or privacy impact.
 
 We aim to acknowledge a complete report within five business days, keep the reporter informed while we investigate, and coordinate disclosure after a fix is available.

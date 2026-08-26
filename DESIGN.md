@@ -54,6 +54,7 @@ A focused desktop utility for turning mangled terminal copy into plain text that
 
 - Text areas always use mono.
 - Body text never drops below 14px.
+- Korean prose keeps words intact at narrow widths, then falls back to safe wrapping for unbroken strings.
 
 ## 4. Spacing & Layout
 
@@ -121,6 +122,15 @@ All spacing derives from 4px.
 - Accessibility: aria-live polite.
 - Motion: transform and opacity only.
 
+### Local History
+- Structure: native disclosure summary, count badge, clear action, and a bounded list of restore buttons.
+- Variants: empty, populated.
+- States: collapsed, expanded, restored, cleared, storage unavailable.
+- Accessibility: native details and summary semantics, native buttons, and a polite count update.
+- Privacy: only successfully copied results are saved, at most 10 entries, in browser local storage.
+- Layout: the list owns its internal scroll after five visible rows; the page remains the outer scroll owner.
+- Motion: native disclosure behavior only. No decorative animation.
+
 ## 6. Motion & Interaction
 
 | Type | Duration | Easing | Usage |
@@ -133,6 +143,7 @@ All spacing derives from 4px.
 - Only transform and opacity animate.
 - Respect prefers-reduced-motion.
 - Hover communicates real affordance only.
+- History restore uses immediate state replacement so the selected text is ready to edit or copy without delay.
 
 ## 7. Depth & Surface
 

@@ -1,4 +1,9 @@
 import { cleanText, DEFAULT_OPTIONS } from "./text-cleaner.js";
+import {
+  clearHistory,
+  readHistory,
+  saveHistoryEntry,
+} from "./history-store.js";
 
 export const SAMPLE_TEXT = `\u001b[36m1. 릴리스 확인\u001b[0m
    - 문서: https: / /docs.example.com /getting-started
@@ -20,6 +25,11 @@ const outputStats = document.querySelector("#outputStats");
 const changeStats = document.querySelector("#changeStats");
 const optionInputs = [...document.querySelectorAll("input")];
 const toast = document.querySelector("#toast");
+const historyCount = document.querySelector("#historyCount");
+const historyList = document.querySelector("#historyList");
+const historyEmpty = document.querySelector("#historyEmpty");
+const clearHistoryButton = document.querySelector("#clearHistoryButton");
+let historyEntries = [];
 
 function getOptions() {
   const mode = document.querySelector("input[name='mode']:checked")?.value ?? DEFAULT_OPTIONS.mode;
@@ -89,7 +99,13 @@ async function copyResult() {
   }
   try {
     await navigator.clipboard.writeText(outputText.value);
-    showToast("정리 결과를 복사했습니다.", "success");
+    try {
+      historyEntries = saveHistoryEntry(window.localStorage, outputText.value);
+      renderHistory();
+      showToast("정리 결과를 복사하고 기록에 저장했습니다.", "success");
+    } catch {
+      showToast("복사는 완료했지만 로컬 기록을 저장할 수 없습니다.", "warning");
+    }
   } catch {
     showToast("브라우저 권한 때문에 복사할 수 없습니다.", "warning");
   }
@@ -113,6 +129,50 @@ function showToast(message, type = "success") {
   toast.classList.add("is-visible");
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2200);
+}
+
+function renderHistory() {
+  historyCount.textContent = String(historyEntries.length);
+  historyEmpty.hidden = historyEntries.length > 0;
+  clearHistoryButton.disabled = historyEntries.length === 0;
+
+  const items = historyEntries.map((entry) => {
+    const item = document.createElement("li");
+    const button = document.createElement("button");
+    const preview = document.createElement("span");
+    const action = document.createElement("span");
+
+    button.type = "button";
+    button.className = "history-item";
+    button.title = "이 기록을 편집기로 불러오기";
+    preview.className = "history-preview";
+    preview.textContent = entry.replace(/\s+/g, " ").slice(0, 120);
+    action.className = "history-action";
+    action.textContent = "불러오기";
+    button.append(preview, action);
+    button.addEventListener("click", () => {
+      outputText.value = entry;
+      outputText.scrollTop = 0;
+      syncFromOutput();
+      sourceText.scrollTop = 0;
+      sourceText.focus();
+      showToast("기록을 편집기로 불러왔습니다.", "success");
+    });
+    item.append(button);
+    return item;
+  });
+
+  historyList.replaceChildren(...items);
+}
+
+function loadHistory() {
+  try {
+    historyEntries = readHistory(window.localStorage);
+  } catch {
+    historyEntries = [];
+    showToast("저장된 로컬 기록을 읽을 수 없습니다.", "warning");
+  }
+  renderHistory();
 }
 
 sourceText.addEventListener("input", update);
@@ -143,10 +203,21 @@ document.querySelector("#clearButton").addEventListener("click", () => {
 
 document.querySelector("#copyButton").addEventListener("click", copyResult);
 document.querySelector("#pasteButton").addEventListener("click", pasteFromClipboard);
+clearHistoryButton.addEventListener("click", () => {
+  try {
+    clearHistory(window.localStorage);
+    historyEntries = [];
+    renderHistory();
+    showToast("로컬 기록을 모두 지웠습니다.", "success");
+  } catch {
+    showToast("브라우저에서 로컬 기록을 지울 수 없습니다.", "warning");
+  }
+});
 
 document.querySelector("#selectButton").addEventListener("click", () => {
   outputText.focus();
   outputText.select();
 });
 
+loadHistory();
 update();

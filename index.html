@@ -136,6 +136,31 @@
           </article>
         </section>
 
+        <details class="history-panel">
+          <summary>
+            <span class="history-summary-copy">
+              <strong>최근 복사 기록</strong>
+              <span>복사에 성공한 결과만 이 브라우저에 저장됩니다.</span>
+            </span>
+            <span class="history-summary-meta">
+              <span class="history-count" role="status" aria-live="polite" aria-atomic="true">
+                <span id="historyCount">0</span>/10
+              </span>
+              <span class="history-disclosure-icon" aria-hidden="true"></span>
+            </span>
+          </summary>
+          <div class="history-content">
+            <div class="history-head">
+              <p>기록을 선택하면 편집기로 바로 불러옵니다.</p>
+              <button class="mini-button" type="button" id="clearHistoryButton">
+                기록 모두 지우기
+              </button>
+            </div>
+            <p class="history-empty" id="historyEmpty">아직 복사한 결과가 없습니다.</p>
+            <ol class="history-list" id="historyList" aria-label="최근 복사 기록"></ol>
+          </div>
+        </details>
+
         <section class="rules-panel" aria-label="정리 규칙">
           <div>
             <h2>정리 규칙</h2>

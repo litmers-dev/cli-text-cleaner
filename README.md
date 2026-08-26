@@ -8,9 +8,9 @@ CLI Text Cleaner turns text copied from terminals, CLIs, and AI coding tools int
 
 ## Privacy / 개인정보
 
-Pasted text is processed only in browser memory. This repository has no backend, account system, database, or application telemetry, and the app does not submit the text you enter.
+Pasted text is processed in your browser. This repository has no backend, account system, server database, or application telemetry, and the app does not submit the text you enter. When a clipboard copy succeeds, the cleaned result is saved to a browser-local recent history with at most 10 entries. You can clear that history from the page at any time.
 
-입력한 텍스트는 브라우저 메모리 안에서만 처리되며 서버로 전송되지 않습니다.
+입력한 텍스트는 브라우저 안에서 처리되며 서버로 전송되지 않습니다. 복사에 성공한 정리 결과만 최근 기록에 최대 10개까지 로컬 저장되며, 페이지에서 언제든 모두 지울 수 있습니다.
 
 ## Features / 기능
 
@@ -21,6 +21,7 @@ Pasted text is processed only in browser memory. This repository has no backend,
 - Converts common Markdown decorations to readable plain text while retaining link destinations and fenced-code content.
 - Optionally applies Unicode NFKC normalization.
 - Provides paste, copy, select, swap, clear, sample, and live character/line counts.
+- Keeps up to 10 successfully copied results in browser-local history for one-click restore and clear.
 
 ## Modes / 모드
 

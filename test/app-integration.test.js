@@ -6,6 +6,8 @@ class FakeElement {
     this.checked = checked;
     this.value = value;
     this.textContent = "";
+    this.children = [];
+    this.hidden = false;
     this.scrollTop = 0;
     this.dataset = {};
     this.classList = { add() {}, remove() {} };
@@ -20,14 +22,44 @@ class FakeElement {
     return this.listeners.get(type)?.({ target: this });
   }
 
+  append(...children) {
+    this.children.push(...children);
+  }
+
+  replaceChildren(...children) {
+    this.children = [...children];
+  }
+
   focus() {}
   select() {}
   setSelectionRange() {}
 }
 
+class FakeStorage {
+  constructor() {
+    this.values = new Map();
+  }
+
+  getItem(key) {
+    return this.values.get(key) ?? null;
+  }
+
+  setItem(key, value) {
+    this.values.set(key, String(value));
+  }
+
+  removeItem(key) {
+    this.values.delete(key);
+  }
+}
+
 let importSequence = 0;
 
-async function loadApp({ writeText = async () => {}, readText = async () => "" } = {}) {
+async function loadApp({
+  writeText = async () => {},
+  readText = async () => "",
+  storage = new FakeStorage(),
+} = {}) {
   const elements = new Map();
   const elementIds = [
     "sourceText",
@@ -42,6 +74,10 @@ async function loadApp({ writeText = async () => {}, readText = async () => "" }
     "copyButton",
     "pasteButton",
     "selectButton",
+    "historyCount",
+    "historyList",
+    "historyEmpty",
+    "clearHistoryButton",
   ];
   elementIds.forEach((id) => elements.set(`#${id}`, new FakeElement()));
 
@@ -57,6 +93,9 @@ async function loadApp({ writeText = async () => {}, readText = async () => "" }
   const inputs = [smartMode, ...options.values()];
 
   globalThis.document = {
+    createElement() {
+      return new FakeElement();
+    },
     querySelector(selector) {
       if (selector === "input[name='mode']:checked") return smartMode;
       return elements.get(selector) ?? options.get(selector);
@@ -69,11 +108,11 @@ async function loadApp({ writeText = async () => {}, readText = async () => "" }
     configurable: true,
     value: { clipboard: { readText, writeText } },
   });
-  globalThis.window = { setTimeout: () => 1 };
+  globalThis.window = { localStorage: storage, setTimeout: () => 1 };
 
   importSequence += 1;
   const app = await import(`../src/main.js?test=${importSequence}`);
-  return { app, elements, options };
+  return { app, elements, options, storage };
 }
 
 test("applies the Markdown option through the page controls", async () => {
@@ -161,4 +200,55 @@ test("shows a warning toast when clipboard copy is rejected", async () => {
   const toast = elements.get("#toast");
   assert.equal(toast.dataset.type, "warning");
   assert.match(toast.textContent, /복사할 수 없습니다/);
+});
+
+test("keeps ten distinct results after successful clipboard copies", async () => {
+  // Given
+  const { elements, storage } = await loadApp();
+  const source = elements.get("#sourceText");
+  const copyButton = elements.get("#copyButton");
+
+  // When
+  for (let index = 0; index < 12; index += 1) {
+    source.value = `result-${index}`;
+    source.dispatch("input");
+    await copyButton.dispatch("click");
+  }
+  await copyButton.dispatch("click");
+
+  // Then
+  const history = JSON.parse(storage.getItem("cli-text-cleaner.history.v1"));
+  assert.equal(history.length, 10);
+  assert.deepEqual(history.slice(0, 3), ["result-11", "result-10", "result-9"]);
+  assert.equal(elements.get("#historyCount").textContent, "10");
+});
+
+test("restores and clears browser-local copy history", async () => {
+  // Given
+  const { elements, storage } = await loadApp();
+  const source = elements.get("#sourceText");
+  const copyButton = elements.get("#copyButton");
+
+  source.value = "```text\nalpha\nbeta\n```";
+  source.dispatch("input");
+  assert.equal(elements.get("#outputText").value, "alpha\nbeta");
+  await copyButton.dispatch("click");
+  source.value = "second saved result";
+  source.dispatch("input");
+  await copyButton.dispatch("click");
+
+  // When
+  elements.get("#historyList").children[1].children[0].dispatch("click");
+
+  // Then
+  assert.equal(source.value, "alpha\nbeta");
+  assert.equal(elements.get("#outputText").value, "alpha\nbeta");
+
+  // When
+  elements.get("#clearHistoryButton").dispatch("click");
+
+  // Then
+  assert.equal(storage.getItem("cli-text-cleaner.history.v1"), null);
+  assert.equal(elements.get("#historyList").children.length, 0);
+  assert.equal(elements.get("#historyCount").textContent, "0");
 });
